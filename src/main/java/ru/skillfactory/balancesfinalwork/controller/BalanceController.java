@@ -34,7 +34,7 @@ public class BalanceController {
 
     @GetMapping(path = "takeMoney")
     public ResponseEntity<Object> takeMoney(@RequestParam("id") @NotNull Long id,
-                                            @RequestParam("sum") @Digits(integer = 12, fraction = 2)
+                                            @RequestParam("sum") @Digits(integer = 15, fraction = 2)
                                             @NotNull @Positive BigDecimal sum){
         try {
             balanceService.takeMoney(id, sum);
@@ -46,7 +46,7 @@ public class BalanceController {
 
     @GetMapping(path = "putMoney")
     public ResponseEntity<Object> putMoney(@RequestParam("id") @NotNull Long id,
-                                           @RequestParam("sum") @Digits(integer = 12, fraction = 2)
+                                           @RequestParam("sum") @Digits(integer = 15, fraction = 2)
                                            @NotNull @Positive BigDecimal sum){
         try {
             balanceService.putMoney(id, sum);

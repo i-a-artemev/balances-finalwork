@@ -14,7 +14,7 @@ public class Balance {
     @Id
     private Long id;
     @PositiveOrZero
-    @Digits(integer = 12, fraction = 2)
+    @Digits(integer = 15, fraction = 2)
     private BigDecimal balance;
 
     public Balance() {
