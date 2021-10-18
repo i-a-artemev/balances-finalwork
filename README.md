@@ -7,7 +7,7 @@
 ### 1. Взаимодействие с базой
 Собственно база
 
-[Ссылка на dump базы](./dump-ib-202110042123.tar)
+[Ссылка на dump базы](./dump-ib-202110182144.tar)
 
 ![Скриншот структуры](./ERDiagram.png)
 
@@ -33,22 +33,68 @@ public class Balance {
     ...
 }
 ```
-- **BalanceRepository** - интерфейс, отнаследованный от JpaRepository, для верхнеуровневого интерфейса с базой.
+- **Operation** - является представлением записи таблицы _operations_ базы
+```java
+@Entity
+@Table(name = "operations")
+public class Operation {
+
+    public enum Type{debit, credit}
+
+    @NotNull
+    @Id
+    @GeneratedValue(strategy= GenerationType.SEQUENCE, generator = "operation_sequence")
+    @SequenceGenerator(name="operation_sequence", sequenceName="operation_sequence", allocationSize = 1)
+    private Long id;
+    @NotNull
+    private Date date;
+    @Column(name = "current_balance_id")
+    @NotNull
+    private Long currentBalanceId;
+    @Column(name = "type")
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    private Type type;
+    @Column(name = "correspond_balance_id")
+    @NotNull
+    private Long correspondBalanceId;
+    @Positive
+    @Digits(integer = 15, fraction = 2)
+    private BigDecimal sum;
+    ...
+```
+- **BalanceRepository** - интерфейс, отнаследованный от JpaRepository, для верхнеуровневого интерфейса с базой(таблица балансов).
 ```java
 public interface BalanceRepository extends JpaRepository<Balance,Long> {}
 ```
-
-- **BalanceService** - основной класс, реализующий логику взаимодействия с базой, в котором,
-собственно, и реализованы методы _getBalance_, _takeMoney_, _putMoney_. Взаимодействие с базой производится с помощью методов
- _BalanceRepository_ отнаследованных от JpaRepository
+- **OperationRepository** - интерфейс, отнасленованный от JpaReposytory для верхнеуровнего интерфиейса с базой(таблица операций)
 ```java
+public interface OperationRepository extends JpaRepository<Operation,Long> {
+    List<Operation> findOperationsByCurrentBalanceId(Long id);
+
+    List<Operation> findOperationsByCurrentBalanceIdAndDateAfter(Long id, Date date);
+
+    List<Operation> findOperationsByCurrentBalanceIdAndDateBetween(Long id, Date dateStart, Date dateStop);
+
+    List<Operation> findOperationsByCurrentBalanceIdAndDateBefore(Long id, Date date);
+}
+```
+- **BalanceService** - основной класс, реализующий логику взаимодействия с базой, в котором,
+собственно, и реализованы методы _getBalance_, _takeMoney_, _putMoney_, _transferMoney_, _getOperationList_. Взаимодействие с базой производится с помощью методов
+ _BalanceRepository_ отнаследованных от JpaRepository. Методы _takeMoney_, _putMoney_, _transferMoney_ аннотированы @Transactional для внесения записей в таблицы **_balances_** и **_operations_** одной транзакцией.
+
+```java
+import org.springframework.stereotype.Service;
+
 @Service
 public class BalanceService {
 
     private final BalanceRepository balanceRepository;
+    private final OperationRepository operationRepository;
 
-    public BalanceService(BalanceRepository balanceRepository) {
+    public BalanceService(BalanceRepository balanceRepository, OperationRepository operationRepository) {
         this.balanceRepository = balanceRepository;
+        this.operationRepository = operationRepository;
     }
     ...
 ```
@@ -114,7 +160,7 @@ ResponseEntity<Object> handleIllegalArgumentException(IllegalArgumentException e
 ```json
 {
     "status": 0,
-    "message": Текст ошибки,
+    "message": "Текст ошибки",
     "data": null
 }
 ```
@@ -132,12 +178,49 @@ ResponseEntity<Object> handleIllegalArgumentException(IllegalArgumentException e
 ```json
 {
   "status": 0,
-  "message": Текст ошибки,
+  "message": "Текст ошибки",
   "data": null
 }
 ```
 
-3. http://_servername_:8080/api/api/putMoney?id=_id_&sum=_sum_
+3. http://_servername_:8080/api/putMoney?id=_id_&sum=_sum_
    Ответы аналогичны для метода _takeMoney_
+4. http://_servername_:8080/api/getOperationList?id=_id_&dateAfter=_dd-mm-yyyy_&dateBefore=_dd-mm-yyyy_
 
+id - обязательный параметр, dateAfter и dateBefore - нет
 
+в случае успешного выполнения возвращается
+```json
+{
+    "status": 1,
+    "message": "success", 
+    "data": список операций(List<Map<String,Object>>)
+}
+```
+при отсуствии операций:
+```json
+{
+"status": 0,
+"message": "operations not found",
+"data": null
+}
+```
+5. http://_servername_:8080/api/transferMoney?senderId=_senderId_&receiverId=_receiverId_&sum=_sum_
+ 
+в случае успешного выполнения возвращается
+```json
+{
+    "status": 1,
+    "message": "success", 
+    "data": null
+}
+```
+в случае ошибок
+
+```json
+{
+    "status": 0,
+    "message": "текст ошибки", 
+    "data": null
+}
+```
